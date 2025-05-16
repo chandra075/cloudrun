@@ -1,16 +1,19 @@
-import functions_framework
+from flask import Flask, request, jsonify
 import logging
 import json
 import requests
-from flask import jsonify
 from google.cloud import storage
+import os
+app = Flask(__name__)
+logging.basicConfig(level=logging.INFO)
 
 # GitHub and Google Cloud Storage Configuration
-GITHUB_TOKEN = ""  # Replace with your GitHub repos token
+
+GITHUB_TOKEN = "dummy"  # Replace with your GitHub token
 GITHUB_OWNER = "chandra075"
 GITHUB_REPO = "DS-Pojects"
 GITHUB_API_URL = f"https://api.github.com/repos/{GITHUB_OWNER}/{GITHUB_REPO}"
-GCS_BUCKET_NAME = "gcf-75"
+GCS_BUCKET_NAME = "crun"
 
 # Initialize Google Cloud Storage Client
 storage_client = storage.Client()
@@ -49,14 +52,10 @@ def fetch_pr_details(pr_number):
         logging.error(f"❌ Error fetching PR details: {e}", exc_info=True)
         return None
 
-@functions_framework.http
-def github_webhook(request):
+@app.route("/", methods=["POST"])
+def github_webhook():
     """Handle GitHub webhook events and fetch PR details."""
     try:
-        if request.method != "POST":
-            logging.warning("❌ Received non-POST request")
-            return jsonify({"error": "Only POST requests are allowed"}), 405
-
         payload = request.get_json()
         event_type = request.headers.get("X-GitHub-Event")
 
@@ -81,3 +80,7 @@ def github_webhook(request):
     except Exception as e:
         logging.error(f"❌ Internal Server Error: {e}", exc_info=True)
         return jsonify({"error": "Internal Server Error"}), 500
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host="0.0.0.0", port=port)
