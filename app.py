@@ -8,14 +8,17 @@ import os
 app = Flask(__name__)
 logging.basicConfig(level=logging.INFO)
 
-# GitHub and Google Cloud Storage Configuration
-GITHUB_TOKEN = os.environ["GITHUB_TOKEN"]  # Store securely
+# --- CONFIG ---
+GITHUB_TOKEN = "" # Set securely in Cloud Run
 GITHUB_OWNER = "chandra075"
-GITHUB_REPO = "DS-Pojects"
-GITHUB_API_URL = f"https://api.github.com/repos/{GITHUB_OWNER}/{GITHUB_REPO}"
+REPOSITORIES = [
+    "DS-Pojects",
+    "exp_28_Mar_2025",
+    # Add more repos here
+]
 GCS_BUCKET_NAME = "crun"
 
-# Initialize Google Cloud Storage Client
+# Initialize GCS client
 storage_client = storage.Client()
 
 def save_to_gcs(payload, filename):
@@ -27,15 +30,16 @@ def save_to_gcs(payload, filename):
     except Exception as e:
         logging.error(f"❌ Error saving to GCS: {e}", exc_info=True)
 
-def fetch_pr_details(pr_number):
+def fetch_pr_details(pr_number, repo):
     headers = {
         "Authorization": f"token {GITHUB_TOKEN}",
         "Accept": "application/vnd.github.v3+json",
     }
 
     try:
-        pr_url = f"{GITHUB_API_URL}/pulls/{pr_number}"
-        comments_url = f"{GITHUB_API_URL}/issues/{pr_number}/comments"
+        base_url = f"https://api.github.com/repos/{GITHUB_OWNER}/{repo}"
+        pr_url = f"{base_url}/pulls/{pr_number}"
+        comments_url = f"{base_url}/issues/{pr_number}/comments"
 
         pr_response = requests.get(pr_url, headers=headers)
         pr_response.raise_for_status()
@@ -48,7 +52,7 @@ def fetch_pr_details(pr_number):
         return {"pull_request": pr_data, "comments": comments_data}
 
     except requests.exceptions.RequestException as e:
-        logging.error(f"❌ Error fetching PR {pr_number}: {e}", exc_info=True)
+        logging.error(f"❌ Error fetching PR {pr_number} from {repo}: {e}", exc_info=True)
         return None
 
 @app.route("/", methods=["POST"])
@@ -59,14 +63,16 @@ def github_webhook():
 
         if event_type == "pull_request":
             pr_number = payload.get("pull_request", {}).get("number")
-            if not pr_number:
-                return jsonify({"error": "PR number not found"}), 400
+            repo = payload.get("repository", {}).get("name")
 
-            pr_info = fetch_pr_details(pr_number)
+            if not pr_number or not repo:
+                return jsonify({"error": "PR number or repo not found"}), 400
+
+            pr_info = fetch_pr_details(pr_number, repo)
             if not pr_info:
                 return jsonify({"error": "Failed to fetch PR"}), 500
 
-            filename = f"pull_request_{pr_number}.json"
+            filename = f"{repo}_pull_request_{pr_number}.json"
             save_to_gcs(pr_info, filename)
 
         return jsonify({"message": "Webhook received"}), 200
@@ -78,32 +84,35 @@ def github_webhook():
 @app.route("/fetch_all_prs", methods=["GET"])
 def fetch_all_prs():
     try:
-        page = 1
         total_saved = 0
-        while True:
-            url = f"{GITHUB_API_URL}/pulls?state=all&per_page=100&page={page}"
-            headers = {
-                "Authorization": f"token {GITHUB_TOKEN}",
-                "Accept": "application/vnd.github.v3+json",
-            }
+        headers = {
+            "Authorization": f"token {GITHUB_TOKEN}",
+            "Accept": "application/vnd.github.v3+json",
+        }
 
-            response = requests.get(url, headers=headers)
-            response.raise_for_status()
-            prs = response.json()
-            if not prs:
-                break
+        for repo in REPOSITORIES:
+            page = 1
+            logging.info(f"📦 Fetching PRs from repo: {repo}")
 
-            for pr in prs:
-                pr_number = pr["number"]
-                pr_info = fetch_pr_details(pr_number)
-                if pr_info:
-                    filename = f"pull_request_{pr_number}.json"
-                    save_to_gcs(pr_info, filename)
-                    total_saved += 1
+            while True:
+                url = f"https://api.github.com/repos/{GITHUB_OWNER}/{repo}/pulls?state=all&per_page=100&page={page}"
+                response = requests.get(url, headers=headers)
+                response.raise_for_status()
+                prs = response.json()
+                if not prs:
+                    break
 
-            page += 1
+                for pr in prs:
+                    pr_number = pr["number"]
+                    pr_info = fetch_pr_details(pr_number, repo)
+                    if pr_info:
+                        filename = f"{repo}_pull_request_{pr_number}.json"
+                        save_to_gcs(pr_info, filename)
+                        total_saved += 1
 
-        return jsonify({"message": f"Fetched and saved {total_saved} PRs"}), 200
+                page += 1
+
+        return jsonify({"message": f"Fetched and saved {total_saved} PRs from all repositories"}), 200
 
     except Exception as e:
         logging.error(f"❌ Error fetching historical PRs: {e}", exc_info=True)
