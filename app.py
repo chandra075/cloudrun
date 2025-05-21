@@ -1,16 +1,16 @@
 from flask import Flask, request, jsonify
+from dotenv import load_dotenv
 import logging
 import json
 import requests
 from google.cloud import storage
 import os
-
+load_dotenv()
 # --- APP CONFIG ---
 app = Flask(__name__)
 logging.basicConfig(level=logging.INFO)
-
 # --- CONSTANTS / ENV CONFIG ---
-GITHUB_TOKEN = "" # Securely injected in Cloud Run
+GITHUB_TOKEN = os.getenv("GITHUB_TOKEN", "") # Securely injected in Cloud Run
 GITHUB_OWNER = "chandra075"
 REPOSITORIES = ["DS-Pojects", "exp_28_Mar_2025"]  # <-- Fixed typo
 GCS_BUCKET_NAME = "crun"
