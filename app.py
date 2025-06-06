@@ -12,7 +12,7 @@ logging.basicConfig(level=logging.INFO)
 # --- CONSTANTS / ENV CONFIG ---
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN", "") # Securely injected in Cloud Run
 GITHUB_OWNER = "chandra075"
-REPOSITORIES = ["DS-Pojects", "exp_28_Mar_2025","airflow_dags"]  # <-- Fixed typo
+REPOSITORIES = ["DS-Pojects", "exp_28_Mar_2025","airflow_dags","cloudrun"]  # <-- Fixed typo
 GCS_BUCKET_NAME = "crun"
 
 # --- GCS CLIENT ---
