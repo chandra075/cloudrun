@@ -6,13 +6,13 @@ import requests
 from google.cloud import storage
 import os
 load_dotenv()
-# --- APP CONFIG ---
+# --- APP CONFIG on 5th Aug 2025---
 app = Flask(__name__)
 logging.basicConfig(level=logging.INFO)
 # --- CONSTANTS / ENV CONFIG ---
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN", "") # Securely injected in Cloud Run
 GITHUB_OWNER = "chandra075"
-REPOSITORIES = ["DS-Pojects", "exp_28_Mar_2025","airflow_dags"]  # <-- Fixed typo
+REPOSITORIES = ["DS-Pojects", "exp_28_Mar_2025","airflow_dags","cloudrun"]  # <-- Fixed typo
 GCS_BUCKET_NAME = "crun"
 
 # --- GCS CLIENT ---
